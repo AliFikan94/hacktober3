@@ -128,7 +128,7 @@ def main(argv=None):
     ap.add_argument("folder", type=Path)
     ap.add_argument("--apply", action="store_true", help="actually move files (default: dry run)")
     ap.add_argument("--undo", action="store_true", help="revert the last --apply")
-    ap.add_argument("--model", default="llama3.2:3b", help="any Ollama model tag")
+    ap.add_argument("--model", default="gemma3:4b", help="any Ollama model tag")
     ap.add_argument("--host", default="http://localhost:11434")
     ap.add_argument("--no-model", action="store_true", help="rules only, skip the LLM")
     a = ap.parse_args(argv)

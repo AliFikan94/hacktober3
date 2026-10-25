@@ -3,7 +3,7 @@
 Point it at a messy folder. It sorts and renames everything using a **local open-weight model** (via [Ollama](https://ollama.com)). Nothing leaves your machine. Python stdlib only.
 
 ```bash
-ollama pull llama3.2:3b          # any open-weight model works
+ollama pull gemma3:4b          # any open-weight model works (gemma3:1b is faster)
 python3 sloth.py ~/Downloads             # dry run: shows what it would do
 python3 sloth.py ~/Downloads --apply     # do it
 python3 sloth.py ~/Downloads --undo      # change your mind
