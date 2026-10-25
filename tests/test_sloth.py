@@ -32,13 +32,14 @@ class SlothTest(unittest.TestCase):
         self.assertEqual(len({m[1] for m in moves}), 3)
 
     def test_model_answer_used_and_bad_answer_falls_back(self):
-        orig = sloth.ask_model
+        orig, orig_up = sloth.ask_model, sloth.server_up
         try:
+            sloth.server_up = lambda host: True
             sloth.ask_model = lambda *a, **k: ("documents", "team-meeting")
             sloth.main([str(self.d), "--apply", "--host", "http://x"])
             self.assertTrue((self.d / "documents" / "team-meeting.txt").exists())
         finally:
-            sloth.ask_model = orig
+            sloth.ask_model, sloth.server_up = orig, orig_up
 
     def test_unreachable_server_returns_none(self):
         self.assertIsNone(sloth.ask_model(self.d / "notes.txt", "http://127.0.0.1:1", "m", timeout=1))

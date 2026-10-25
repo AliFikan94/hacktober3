@@ -87,11 +87,21 @@ def unique(dest: Path) -> Path:
         i += 1
 
 
-def plan(folder: Path, classify):
+def server_up(host: str) -> bool:
+    try:
+        urllib.request.urlopen(host.rstrip("/") + "/api/tags", timeout=3).close()
+        return True
+    except OSError:
+        return False
+
+
+def plan(folder: Path, classify, limit=None):
     moves = []
-    for p in sorted(folder.iterdir()):
-        if not p.is_file() or p.name.startswith("."):
-            continue
+    files = [p for p in sorted(folder.iterdir()) if p.is_file() and not p.name.startswith(".")]
+    if limit:
+        files = files[:limit]
+    for i, p in enumerate(files, 1):
+        print(f"[{i}/{len(files)}] {p.name} ...", file=sys.stderr, flush=True)
         cat, stem = classify(p)
         dest = unique(folder / cat / (stem + p.suffix.lower()))
         # two files in this batch may pick the same target
@@ -130,6 +140,8 @@ def main(argv=None):
     ap.add_argument("--undo", action="store_true", help="revert the last --apply")
     ap.add_argument("--model", default="gemma3:4b", help="any Ollama model tag")
     ap.add_argument("--host", default="http://localhost:11434")
+    ap.add_argument("--limit", type=int, help="only process the first N files")
+    ap.add_argument("--timeout", type=float, default=120, help="seconds to wait per file")
     ap.add_argument("--no-model", action="store_true", help="rules only, skip the LLM")
     a = ap.parse_args(argv)
     folder = a.folder.resolve()
@@ -139,17 +151,22 @@ def main(argv=None):
         return print("undone")
 
     state = {"model_ok": not a.no_model}
+    if state["model_ok"] and not server_up(a.host):
+        state["model_ok"] = False
+        print("(Ollama not reachable, using extension rules)", file=sys.stderr)
+    elif state["model_ok"]:
+        print(f"(first file may be slow while {a.model} loads)", file=sys.stderr, flush=True)
 
     def classify(p):
         if state["model_ok"]:
-            res = ask_model(p, a.host, a.model)
+            res = ask_model(p, a.host, a.model, a.timeout)
             if res:
                 return res
             state["model_ok"] = False  # don't retry a dead server for every file
             print("(no local model reachable, using extension rules)", file=sys.stderr)
         return rule_category(p), slugify(p.stem) or "file"
 
-    moves = plan(folder, classify)
+    moves = plan(folder, classify, a.limit)
     for src, dst in moves:
         print(f"{src.name}  ->  {dst.relative_to(folder)}")
     if a.apply:
