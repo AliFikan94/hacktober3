@@ -42,10 +42,16 @@ def snippet(path: Path, limit: int = 600) -> str:
     if path.suffix.lower() not in TEXT_EXTS:
         return ""
     try:
-        with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            return f.read(limit)
+        with open(path, "rb") as f:
+            raw = f.read(limit * 4)
     except OSError:
         return ""
+    # Windows PowerShell's Out-File writes UTF-16 with a BOM by default
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        enc = "utf-16"
+    else:
+        enc = "utf-8-sig"
+    return raw.decode(enc, errors="ignore")[:limit].replace("\x00", "")
 
 
 def slugify(name: str) -> str:
@@ -56,9 +62,11 @@ def slugify(name: str) -> str:
 def ask_model(path: Path, host: str, model: str, timeout: float = 60.0, fallback_cat: str = "other"):
     """Return (category, stem) from the local model, or None if unavailable/invalid."""
     prompt = (
-        "You file clutter. Reply with JSON only: "
-        '{"category": one of %s, "name": "short-kebab-case-descriptive-name"}.\n'
-        "Filename: %s\nContent start:\n%s" % (CATEGORIES, path.name, snippet(path) or "(binary or empty)")
+        "Name this file based on its content. Reply with JSON only, like "
+        '{"category": "documents", "name": "team-standup-notes"}.\n'
+        "category must be one of: " + ", ".join(CATEGORIES) + ".\n"
+        "name is 2-4 lowercase words joined by hyphens that describe the content.\n\n"
+        "Filename: %s\nContent:\n%s" % (path.name, snippet(path) or "(no readable text, use the filename)")
     )
     body = json.dumps({"model": model, "stream": False, "format": "json",
                        "options": {"num_predict": 80, "temperature": 0},
@@ -74,7 +82,7 @@ def ask_model(path: Path, host: str, model: str, timeout: float = 60.0, fallback
         cat = str(reply.get("category", "")).strip().lower()
         if cat not in CATEGORIES:
             cat = fallback_cat  # keep the model's name, use the extension's folder
-        if stem:
+        if stem and stem not in CATEGORIES:
             return cat, stem
         print(f"  model gave no usable name: {raw[:120]!r}", file=sys.stderr)
     except Exception as e:  # show why instead of failing silently
