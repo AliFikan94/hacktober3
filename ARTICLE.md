@@ -10,13 +10,18 @@ tags: devchallenge, hf26challenge
 Sloth Tidy sorts and renames a messy folder (Downloads, Desktop) for you. Point it at a folder and it proposes `IMG_0042.JPG -> images/img-0042.jpg` or `Untitled(3).txt -> documents/team-standup-notes.txt`. It is a dry run by default, never overwrites a file, and `--undo` reverts the last run. The lazy part: I'd never organise this folder myself.
 
 ## Demo
-<!-- TODO: paste a short screen recording, or the terminal output of a real run below -->
+Two files, `note2.txt` (a grocery list) and `Untitled1.txt` (standup notes), sorted by what they actually say, using `gemma3:1b` on my own CPU:
+
 ```
-python sloth.py %USERPROFILE%\test-mess --model gemma3:1b
-[1/3] notes.txt ...
-...
-dry run: 3 files. add --apply to do it.
+PS> python sloth.py $HOME\mini --model gemma3:1b
+(first file may be slow while gemma3:1b loads)
+[1/2] note2.txt ...
+[2/2] Untitled1.txt ...
+note2.txt  ->  documents\groceries-list.txt
+Untitled1.txt  ->  documents\standup-notes.txt
+dry run: 2 files. add --apply to do it.
 ```
+<!-- TODO: optionally add a screenshot or short screen recording here -->
 
 ## Code
 {% embed https://github.com/AliFikan94/hacktober3 %}
@@ -31,7 +36,10 @@ dry run: 3 files. add --apply to do it.
 A folder tidier has to read your private files: tax returns, chat exports, screenshots. With an open-weight model on localhost, the contents never leave my machine, it works offline, and it costs nothing per file. `--model` accepts any Ollama model, so swapping models is one flag. A closed API would mean uploading my Downloads folder to someone else's server.
 
 ## The Lazy Payoff
-<!-- TODO: fill in honestly after your test, e.g. "sorted N files in X seconds; gemma3:1b was fast but names were generic, 4b was better but slower" -->
+It names files by their content without me opening them, and my files never leave my machine. Honest notes from building it:
+- My first run named both files `other.txt`. Two causes: Windows PowerShell saves text as UTF-16, which my code read as garbage, and a 1B model sometimes copies words from the prompt. Fixing the decoding and giving the model a clearer example made it work.
+- The tool never hangs: if Ollama is down or a reply is invalid, it falls back to simple extension rules.
+- It runs entirely on CPU. A small model is slow per file, so it suits an overnight or one-off tidy, not instant results.
 
 ## Prize Categories
 <!-- TODO: list any partner categories, or delete this section -->
