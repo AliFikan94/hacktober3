@@ -53,7 +53,7 @@ def slugify(name: str) -> str:
     return re.sub(r"[\s_]+", "-", name)[:60].strip("-")
 
 
-def ask_model(path: Path, host: str, model: str, timeout: float = 60.0):
+def ask_model(path: Path, host: str, model: str, timeout: float = 60.0, fallback_cat: str = "other"):
     """Return (category, stem) from the local model, or None if unavailable/invalid."""
     prompt = (
         "You file clutter. Reply with JSON only: "
@@ -61,17 +61,24 @@ def ask_model(path: Path, host: str, model: str, timeout: float = 60.0):
         "Filename: %s\nContent start:\n%s" % (CATEGORIES, path.name, snippet(path) or "(binary or empty)")
     )
     body = json.dumps({"model": model, "stream": False, "format": "json",
+                       "options": {"num_predict": 80, "temperature": 0},
                        "messages": [{"role": "user", "content": prompt}]}).encode()
     req = urllib.request.Request(host.rstrip("/") + "/api/chat", body,
                                  {"Content-Type": "application/json"})
+    raw = ""
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
-            reply = json.loads(json.loads(r.read())["message"]["content"])
-        cat, stem = reply.get("category"), slugify(str(reply.get("name", "")))
-        if cat in CATEGORIES and stem:
+            raw = json.loads(r.read())["message"]["content"]
+        reply = json.loads(raw)
+        stem = slugify(str(reply.get("name", "")))
+        cat = str(reply.get("category", "")).strip().lower()
+        if cat not in CATEGORIES:
+            cat = fallback_cat  # keep the model's name, use the extension's folder
+        if stem:
             return cat, stem
-    except (OSError, ValueError, KeyError, TypeError):
-        pass
+        print(f"  model gave no usable name: {raw[:120]!r}", file=sys.stderr)
+    except Exception as e:  # show why instead of failing silently
+        print(f"  model call failed: {type(e).__name__}: {e} {raw[:120]!r}", file=sys.stderr)
     return None
 
 
@@ -159,7 +166,7 @@ def main(argv=None):
 
     def classify(p):
         if state["model_ok"]:
-            res = ask_model(p, a.host, a.model, a.timeout)
+            res = ask_model(p, a.host, a.model, a.timeout, rule_category(p))
             if res:
                 return res
             state["model_ok"] = False  # don't retry a dead server for every file
