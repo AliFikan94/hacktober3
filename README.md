@@ -9,6 +9,8 @@ python3 sloth.py ~/Downloads --apply     # do it
 python3 sloth.py ~/Downloads --undo      # change your mind
 ```
 
+Prefer clicking? `python ui.py` opens a small local web page (preview, apply, undo). It listens on 127.0.0.1 only.
+
 `IMG_0042.JPG` becomes `images/img-0042.jpg`. `Untitled(3).txt` containing meeting notes becomes `documents/team-standup-notes.txt`.
 
 ## How it works
